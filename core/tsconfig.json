@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/agent": ["./src/agent/index.ts"],
+      "@/agent/*": ["./src/agent/*"],
+      "@/tools": ["./src/tools/index.ts"],
+      "@/tools/*": ["./src/tools/*"],
+      "@/db": ["./src/db/index.ts"],
+      "@/db/*": ["./src/db/*"],
+      "@/ingest/*": ["./src/ingest/*"],
+      "@/retrieval/*": ["./src/retrieval/*"],
+      "@/telemetry/*": ["./src/telemetry/*"],
+      "@/api/*": ["./src/api/*"]
+    },
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

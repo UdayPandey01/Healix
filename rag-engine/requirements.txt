@@ -1,4 +1,0 @@
-# RAG Engine dependencies
-qdrant-client>=1.9.0
-openai>=1.20.0
-sentence-transformers>=2.7.0
