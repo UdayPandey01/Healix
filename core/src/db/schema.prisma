@@ -1,62 +1,41 @@
-// Healix data model.
-// Schema, migrations and the generated client all live under core/src/db/.
-
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "./generated"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-enum RunStatus {
-  QUEUED
-  RUNNING
-  SUCCEEDED
-  FAILED
-}
-
-enum StepStatus {
-  PENDING
-  RUNNING
-  SUCCEEDED
-  FAILED
-  SKIPPED
-}
-
-/// One investigation triggered by an inbound alert.
 model Run {
-  id         String    @id @default(cuid())
-  traceId    String    @unique
-  incidentId String
-  service    String
-  title      String
-  task       String
-  status     RunStatus @default(QUEUED)
-  steps      Step[]
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id        String   @id @default(uuid()) @db.Uuid
+  task      String
+  status    String   @default("running")
+  messages  Json     @default("[]")
+  stepCount Int      @default(0) @map("step_count")
+  diagnosis String?
+  error     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  steps     Step[]
 
-  @@index([service])
-  @@index([status])
+  @@map("runs")
 }
 
-/// A single action the agent took within a Run.
 model Step {
-  id         String     @id @default(cuid())
-  runId      String
-  run        Run        @relation(fields: [runId], references: [id], onDelete: Cascade)
-  stepNumber Int
-  name       String
-  status     StepStatus @default(PENDING)
+  id         String   @id @default(uuid()) @db.Uuid
+  runId      String   @map("run_id") @db.Uuid
+  run        Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepNumber Int      @map("step_number")
+  type       String
+  toolName   String?  @map("tool_name")
   input      Json?
   output     Json?
-  error      String?
-  startedAt  DateTime?
-  finishedAt DateTime?
-  createdAt  DateTime   @default(now())
+  tokensIn   Int?     @map("tokens_in")
+  tokensOut  Int?     @map("tokens_out")
+  durationMs Int?     @map("duration_ms")
+  createdAt  DateTime @default(now()) @map("created_at")
 
-  @@unique([runId, stepNumber])
-  @@index([runId])
+  @@index([runId, stepNumber])
+  @@map("steps")
 }
