@@ -1,0 +1,62 @@
+// Healix data model.
+// Schema, migrations and the generated client all live under core/src/db/.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum StepStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+/// One investigation triggered by an inbound alert.
+model Run {
+  id         String    @id @default(cuid())
+  traceId    String    @unique
+  incidentId String
+  service    String
+  title      String
+  task       String
+  status     RunStatus @default(QUEUED)
+  steps      Step[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([service])
+  @@index([status])
+}
+
+/// A single action the agent took within a Run.
+model Step {
+  id         String     @id @default(cuid())
+  runId      String
+  run        Run        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepNumber Int
+  name       String
+  status     StepStatus @default(PENDING)
+  input      Json?
+  output     Json?
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@unique([runId, stepNumber])
+  @@index([runId])
+}
