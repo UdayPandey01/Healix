@@ -5,9 +5,9 @@ export async function createRun(task : string) {
     const run = await prisma.run.create({
         data: {
             task,
-            message : [{
+            messages : [{
                 role : 'user',
-                content : task 
+                content : task
             }] as Prisma.InputJsonValue[],
         }
     })
@@ -20,7 +20,7 @@ export async function saveState(runId : string, message : unknown[], stepCount :
             id : runId
         },
         data : {
-            message : message as Prisma.InputJsonValue[],
+            messages : message as Prisma.InputJsonValue[],
             stepCount
         }
     })
@@ -33,7 +33,7 @@ export async function finishRun(runId : string, status : string, diagnosis? : st
         },
         data : {
             status,
-            diagnostic : diagnosis ?? null,
+            diagnosis : diagnosis ?? null,
             error : error ?? null
         }
     })
@@ -43,7 +43,7 @@ export async function recordStep(s : {
     runId : string;
     stepNumber : number;
     type : string;
-    toolname? : string;
+    toolName? : string;
     input? : unknown;
     output? : unknown;
     tokensIn? : number;
@@ -55,7 +55,7 @@ export async function recordStep(s : {
             runId : s.runId,
             stepNumber : s.stepNumber,
             type : s.type,
-            toolname : s.toolname ?? null,
+            toolName : s.toolName ?? null,
             input : s.input as Prisma.InputJsonValue ?? null,
             output : s.output as Prisma.InputJsonValue ?? null,
             tokensIn : s.tokensIn ?? null,
