@@ -159,8 +159,12 @@ system was actually run enough times to characterize how it breaks.
 
 ## 8. Stack
 
-TypeScript · Fastify · Prisma · Postgres + pgvector · Anthropic SDK · Rust ·
-OpenTelemetry · Docker Compose.
+TypeScript · Fastify · Prisma · Postgres + pgvector · Google Gemini (`@google/genai`) ·
+Rust · OpenTelemetry · Docker Compose.
+
+Provider note: originally specced against the Anthropic SDK; switched to Gemini in W1 for
+cost reasons. See the W1 decision entry in Part 2. The runtime is hand-written either way —
+no framework owns the loop.
 
 ## 9. Current state
 
@@ -331,3 +335,76 @@ Smaller than "the agent loop": get **one turn** round-tripping — user message 
 → execute `read_file` → `tool_result` → `end_turn` — with **no persistence at all**. Prove
 the wire shape is understood. Then add the state machine underneath, knowing exactly what
 is being persisted.
+
+---
+
+## W1 · Decision — model provider switched to Gemini
+
+**Decision:** build against Google Gemini (`@google/genai`, model `gemini-3.6-flash`) instead
+of the Anthropic SDK.
+
+**Reason:** no Anthropic API credits available. This is a funding constraint, not an
+architectural judgement — the Anthropic key authenticated fine; the account had no balance.
+
+**What this does NOT change:** the runtime is still a hand-written durable state machine.
+No framework owns the loop. `db/`, the schema, and the query layer are provider-agnostic
+and unaffected.
+
+**What it defers:** whether the loop speaks an internal message type with a provider adapter
+at the edge (option B), or is written directly against Gemini (option A). Deferred
+deliberately — the abstraction has nothing to abstract until the loop exists at rung 5.
+Revisit then. `@anthropic-ai/sdk` is left installed for a possible Claude eval run later.
+
+**Known cost of the choice:** `messages Json` stores raw provider format, so runs recorded
+under Gemini are not replayable under Claude.
+
+## W1 · Gemini wire shape — as observed, not as documented
+
+Confirmed against a real rung-1 response.
+
+### Structural differences from Anthropic
+
+| Concept | Anthropic | Gemini |
+|---|---|---|
+| Turn container | `messages[]` of content blocks | `contents[]` of `parts[]` |
+| Assistant role | `"assistant"` | `"model"` |
+| Tool call | `tool_use` block: `id`, `name`, `input` | `functionCall` part: `name`, `args` |
+| Tool result | `tool_result`, matched by `tool_use_id` | `functionResponse`, matched by `functionCall.id` |
+| Loop condition | `stop_reason === "tool_use"` | **inspect `parts[]` for a `functionCall`** |
+| Tool schema | `input_schema` | `config.tools[].functionDeclarations[]` |
+
+**The loop condition is the important one.** Gemini returns `finishReason: "STOP"` even when
+emitting a function call, so the finish reason cannot drive the loop. The condition is
+structural: *does `parts[]` contain a `functionCall`?*
+
+**Per-call ID — CORRECTED.** An earlier note here claimed Gemini has no per-call ID. It does:
+observed `functionCall.id` (e.g. `"call_822215"`) on a real response. Results can therefore be
+matched to calls exactly, and `Step` rows can key on it. Parallel calls to the same tool in one
+turn are unambiguous.
+
+### `thoughtSignature` — constrains the persistence layer
+
+Parts can carry a `thoughtSignature`: an opaque blob that must be replayed **byte-exact** in
+later turns to preserve reasoning continuity. `messages Json` must round-trip it unchanged.
+Any normalization, key reordering, or stripping of unknown fields on persist breaks it
+silently — no error, just degraded reasoning.
+
+### Thinking is on by default and dominates cost
+
+Observed on a trivial prompt:
+
+```
+promptTokenCount:     7
+candidatesTokenCount: 1     <- the visible output ("OK")
+thoughtsTokenCount:  58     <- thinking
+totalTokenCount:     66
+```
+
+58 thinking tokens to produce one word. Use `thinkingConfig` to minimize thinking during
+plumbing work (rungs 2-4); restore it when reasoning quality matters.
+
+**Schema consequence:** `Step.tokensOut` should be `candidatesTokenCount + thoughtsTokenCount`.
+Thinking tokens bill as output — counting only `candidatesTokenCount` understates
+cost-per-incident by a large factor, and that number is a published eval metric.
+
+Ignore `sdkHttpResponse.headers` — transport metadata, not model output. Do not persist it.

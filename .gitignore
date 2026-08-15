@@ -29,3 +29,12 @@ coverage/
 # --- Local tooling / OS ---
 .claude/settings.local.json
 .DS_Store
+
+# --- Prisma-installed agent skills (kept on disk, not published) ---
+**/.agents/
+**/.windsurf/
+**/.claude/skills/
+**/skills-lock.json
+
+# --- Local design/working notes, not published ---
+DESIGN.md
