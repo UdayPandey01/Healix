@@ -7,7 +7,7 @@ export async function createRun(task : string) {
             task,
             messages : [{
                 role : 'user',
-                content : task
+                parts : [{ text : task }]
             }] as Prisma.InputJsonValue[],
         }
     })
