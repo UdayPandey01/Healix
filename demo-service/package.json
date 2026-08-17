@@ -1,0 +1,14 @@
+{
+  "name": "demo-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A deliberately breakable service. Healix investigates this.",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
