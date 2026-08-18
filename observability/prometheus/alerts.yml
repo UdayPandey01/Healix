@@ -1,1 +1,18 @@
-#Here
+groups:
+  - name: demo-service
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[1m]))
+            /
+          sum(rate(http_requests_total[1m]))
+            > 0.05
+        for: 30s
+        labels:
+          severity: critical
+          service: demo-service
+        annotations:
+          summary: "Elevated 5xx rate on demo-service"
+          description: >-
+            More than 5% of requests to demo-service are returning 5xx.
+            Investigate the source of the server errors.
