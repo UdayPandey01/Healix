@@ -4,6 +4,8 @@ export const WORKSPACE_ROOT = resolve(
     process.env.TARGET_REPO ?? resolve(process.cwd(), "..", "demo-service"),
 );
 
+export const IGNORED = new Set(["node_modules", ".git", "dist", ".next", "coverage"]);
+
 export type ToolResult =
     | { ok: true; content: string }
     | { ok: false; error: string };
@@ -19,5 +21,3 @@ export function safeResolve(
     }
     return { ok: true, target };
 }
-
-export const IGNORED = new Set(["node_modules", ".git", "dist", ".next", "coverage"]);

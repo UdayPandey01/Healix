@@ -1,7 +1,7 @@
+import type { FunctionDeclaration } from "@google/genai";
 import { readFileDeclaration, readFileTool } from "./readFile";
 import { listFilesDeclaration, listFilesTool } from "./listFiles";
 import { grepCodeDeclaration, grepCodeTool } from "./grepCode";
-import type { FunctionDeclaration } from "@google/genai";
 import type { ToolResult } from "./workspace";
 
 export type { ToolResult } from "./workspace";
@@ -28,8 +28,10 @@ export async function dispatch(
     const tool = name ? BY_NAME.get(name) : undefined;
 
     if (!tool) {
-        const known = [...BY_NAME.keys()].join(", ");
-        return { ok: false, error: `Unknown tool "${name}". Available tools: ${known}.` };
+        return {
+            ok: false,
+            error: `Unknown tool "${name}". Available: ${[...BY_NAME.keys()].join(", ")}.`,
+        };
     }
 
     try {
