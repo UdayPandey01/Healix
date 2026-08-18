@@ -12,7 +12,7 @@ test("summary handles an unknown user without throwing", () => {
   assert.doesNotThrow(() => userOrderSummary(999));
 });
 
-test("page 1 returns the FIRST records", () => {
+test("page 1 returns the first records", () => {
   const p = listOrders(1, 3);
   assert.equal(p.items[0].id, 101);
   assert.equal(p.items.length, 3);

@@ -1,7 +1,21 @@
 import express from "express";
 import { userOrderSummary, listOrders } from "./orders.js";
+import { registry, httpRequests } from "./metrics.js";
 
 const app = express();
+
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    const route = req.route?.path ?? req.path;
+    httpRequests.inc({ method: req.method, route, status: res.statusCode });
+  });
+  next();
+});
+
+app.get("/metrics", async (req, res) => {
+  res.set("Content-Type", registry.contentType);
+  res.send(await registry.metrics());
+});
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
