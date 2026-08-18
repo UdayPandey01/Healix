@@ -6,6 +6,8 @@ import { createRun, finishRun, getRun, recordStep, saveState } from "@/db/client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const MODEL = "gemini-3.6-flash";
 const MAX_PASSES = 10;
+const MAX_RETRIES = 4;
+const RETRYABLE = new Set([429, 500, 503]);
 
 const tools = [{ functionDeclarations: toolDeclarations }];
 
@@ -22,6 +24,30 @@ export type RunAgentOptions = {
     resumeId?: string;
 };
 
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callModel(contents: Content[]) {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await ai.models.generateContent({
+                model: MODEL,
+                contents,
+                config: { tools, systemInstruction: SYSTEM_INSTRUCTION },
+            });
+        } catch (err) {
+            const status = (err as { status?: number }).status;
+
+            if (!status || !RETRYABLE.has(status) || attempt >= MAX_RETRIES) throw err;
+
+            const waitMs = 2000 * 2 ** (attempt - 1);
+            console.log(`model returned ${status}, retrying in ${waitMs}ms (${attempt}/${MAX_RETRIES})`);
+            await sleep(waitMs);
+        }
+    }
+}
+
 export async function runAgent(
     task: string,
     options: RunAgentOptions = {},
@@ -29,6 +55,7 @@ export async function runAgent(
     const { resumeId } = options;
 
     let answer = "(the loop ended without producing an answer)";
+    let reachedAnswer = false;
     const contents: Content[] = [];
     let stepNumber = 0;
     let runId: string;
@@ -57,9 +84,7 @@ export async function runAgent(
             return recovered || "(the final turn carried no text)";
         }
 
-        console.log(
-            `resuming run ${runId} — ${contents.length} turns, ${stepNumber} steps done`,
-        );
+        console.log(`resuming run ${runId} — ${contents.length} turns, ${stepNumber} steps done`);
     } else {
         runId = await createRun(task);
         contents.push({ role: "user", parts: [{ text: task }] });
@@ -68,11 +93,7 @@ export async function runAgent(
 
     for (let pass = 1; pass <= MAX_PASSES; pass++) {
         const modelStartedAt = Date.now();
-        const res = await ai.models.generateContent({
-            model: MODEL,
-            contents,
-            config: { tools, systemInstruction: SYSTEM_INSTRUCTION },
-        });
+        const res = await callModel(contents);
         const modelDurationMs = Date.now() - modelStartedAt;
 
         const modelTurn = res.candidates?.[0]?.content;
@@ -99,13 +120,12 @@ export async function runAgent(
 
         const calls = [];
         for (const part of modelTurn.parts ?? []) {
-            if (part.functionCall) {
-                calls.push(part.functionCall);
-            }
+            if (part.functionCall) calls.push(part.functionCall);
         }
 
         if (calls.length === 0) {
             answer = res.text ?? "(model returned no text)";
+            reachedAnswer = true;
             await saveState(runId, contents, stepNumber);
             break;
         }
@@ -142,11 +162,7 @@ export async function runAgent(
             }
 
             resultParts.push({
-                functionResponse: {
-                    id: call.id,
-                    name: call.name,
-                    response: response,
-                },
+                functionResponse: { id: call.id, name: call.name, response },
             });
         }
 
@@ -154,6 +170,6 @@ export async function runAgent(
         await saveState(runId, contents, stepNumber);
     }
 
-    await finishRun(runId, "completed", answer);
+    await finishRun(runId, reachedAnswer ? "completed" : "exhausted", answer);
     return answer;
 }
