@@ -1,17 +1,6 @@
+# Postgres is Neon, not a local container — see docs/ARCHITECTURE.md §7.
+# core/.env supplies DATABASE_URL (pooled) and DIRECT_URL (unpooled, for migrations).
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: healix-postgres
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: healix_admin
-      POSTGRES_PASSWORD: local_dev_password
-      POSTGRES_DB: healix_tenant_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
   prometheus:
     image: prom/prometheus:v2.55.1
     container_name: healix-prometheus
@@ -35,5 +24,29 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
-volumes:
-  postgres_data:
+  sandbox:
+    build:
+      context: ./sandbox
+      dockerfile: Dockerfile
+    container_name: healix-sandbox
+    environment:
+      # The container sees the repo at its mount point, not at the host path Healix
+      # knows. core must be told this via SANDBOX_REPO_PATH.
+      SANDBOX_REPO_PATH: /workspace/demo-service
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./demo-service:/workspace/demo-service
+    networks:
+      - sandbox_net
+    mem_limit: 512m
+    pids_limit: 256
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+networks:
+  sandbox_net:
+    internal: true

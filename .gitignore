@@ -36,5 +36,11 @@ coverage/
 **/.claude/skills/
 **/skills-lock.json
 
+# --- demo-service is its own repository (UdayPandey01/healix-demo-service) ---
+# It is the TARGET system Healix patches, not part of Healix. Kept on disk here so
+# TARGET_REPO resolves for local runs; tracked and pushed from its own .git.
+demo-service/
+
 # --- Local design/working notes, not published ---
 DESIGN.md
+EXPLAIN.md
