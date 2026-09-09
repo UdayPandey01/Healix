@@ -1,24 +1,42 @@
 import "dotenv/config";
 import { GoogleGenAI, type Content, type Part } from "@google/genai";
 import { dispatch, toolDeclarations } from "../tools";
-import { createRun, finishRun, getRun, recordStep, saveState } from "@/db/client";
+import {
+    addTokens,
+    createRun,
+    finishRun,
+    getRun,
+    haltRun,
+    recordStep,
+    saveState,
+} from "@/db/client";
+import { checkBudget, detectLoop, MAX_PASSES } from "./guardrails";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const MODEL = "gemini-3.6-flash";
-const MAX_PASSES = 10;
-const MAX_RETRIES = 4;
+
+const MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash";
+
+const MAX_RETRIES = Number(process.env.AGENT_MAX_RETRIES ?? 6);
+const MAX_BACKOFF_MS = 60_000;
 const RETRYABLE = new Set([429, 500, 503]);
 
 const tools = [{ functionDeclarations: toolDeclarations }];
 
 const SYSTEM_INSTRUCTION =
-    "You are a code investigator working on an unfamiliar codebase. " +
-    "Start with list_files to see what exists. Use grep_code to locate an " +
-    "identifier or error message. Use read_file to see actual code. " +
-    "You may only describe or quote a file after reading it with read_file in " +
-    "this conversation. Never reconstruct code from memory or infer it from a " +
-    "filename. If a tool returns an error, say so plainly and try a different " +
-    "approach rather than guessing at the contents.";
+    "You are an SRE investigating a production incident in an unfamiliar codebase. " +
+    "Start with search_code, describing the symptom in plain words — it returns the " +
+    "most relevant functions with their file paths and line numbers, and is usually " +
+    "the fastest route to the right file. Use grep_code when you already know an exact " +
+    "identifier or error string. Use list_files if you need to see what exists. Use " +
+    "read_file to see a whole file. Use run_tests to observe the real failure and to " +
+    "confirm a fix. " +
+    "You may only describe or quote a file after reading it with read_file or receiving " +
+    "it from search_code in this conversation. Never reconstruct code from memory or " +
+    "infer it from a filename. If a tool returns an error, say so plainly and try a " +
+    "different approach rather than guessing at the contents. " +
+    "When you have a fix and run_tests passes with it, call open_pr with the complete " +
+    "new contents of each changed file. Never claim to have opened a pull request " +
+    "unless open_pr returned a URL.";
 
 export type RunAgentOptions = {
     resumeId?: string;
@@ -41,7 +59,7 @@ async function callModel(contents: Content[]) {
 
             if (!status || !RETRYABLE.has(status) || attempt >= MAX_RETRIES) throw err;
 
-            const waitMs = 2000 * 2 ** (attempt - 1);
+            const waitMs = Math.min(2000 * 2 ** (attempt - 1), MAX_BACKOFF_MS);
             console.log(`model returned ${status}, retrying in ${waitMs}ms (${attempt}/${MAX_RETRIES})`);
             await sleep(waitMs);
         }
@@ -56,8 +74,10 @@ export async function runAgent(
 
     let answer = "(the loop ended without producing an answer)";
     let reachedAnswer = false;
+    let awaitingApproval = false;
     const contents: Content[] = [];
     let stepNumber = 0;
+    let tokensUsed = 0;
     let runId: string;
 
     if (resumeId) {
@@ -71,6 +91,7 @@ export async function runAgent(
 
         runId = prior.id;
         stepNumber = prior.stepCount;
+        tokensUsed = prior.tokensUsed;
         contents.push(...(prior.messages as unknown as Content[]));
 
         const lastTurn = contents.at(-1);
@@ -92,6 +113,22 @@ export async function runAgent(
     }
 
     for (let pass = 1; pass <= MAX_PASSES; pass++) {
+        const budget = checkBudget({ pass, stepNumber, tokensUsed });
+        if (budget.halted) {
+            console.log(`halting run ${runId}: ${budget.reason}`);
+            await saveState(runId, contents, stepNumber);
+            await haltRun(runId, budget.status, budget.reason, answer);
+            return `Halted: ${budget.reason}`;
+        }
+
+        const loop = detectLoop(contents);
+        if (loop.halted) {
+            console.log(`halting run ${runId}: ${loop.reason}`);
+            await saveState(runId, contents, stepNumber);
+            await haltRun(runId, loop.status, loop.reason, answer);
+            return `Halted: ${loop.reason}`;
+        }
+
         const modelStartedAt = Date.now();
         const res = await callModel(contents);
         const modelDurationMs = Date.now() - modelStartedAt;
@@ -103,6 +140,8 @@ export async function runAgent(
         const tokensIn = usage?.promptTokenCount;
         const tokensOut =
             (usage?.candidatesTokenCount ?? 0) + (usage?.thoughtsTokenCount ?? 0);
+
+        tokensUsed = await addTokens(runId, (tokensIn ?? 0) + tokensOut);
 
         stepNumber++;
         await recordStep({
@@ -135,8 +174,10 @@ export async function runAgent(
             const args = (call.args ?? {}) as Record<string, unknown>;
 
             const toolStartedAt = Date.now();
-            const result = await dispatch(call.name, args);
+            const result = await dispatch(call.name, args, { runId });
             const toolDurationMs = Date.now() - toolStartedAt;
+
+            if (call.name === "open_pr" && result.ok) awaitingApproval = true;
 
             console.log(
                 `pass ${pass}: ${call.name}(${JSON.stringify(args)}) -> ` +
@@ -168,6 +209,16 @@ export async function runAgent(
 
         contents.push({ role: "user", parts: resultParts });
         await saveState(runId, contents, stepNumber);
+
+        if (awaitingApproval) {
+            await haltRun(
+                runId,
+                "awaiting_approval",
+                "patch proposed, waiting for human review",
+                answer,
+            );
+            return "A patch has been proposed and is awaiting human approval.";
+        }
     }
 
     await finishRun(runId, reachedAnswer ? "completed" : "exhausted", answer);

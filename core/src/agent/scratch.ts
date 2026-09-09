@@ -2,8 +2,8 @@ import "dotenv/config";
 import { runAgent } from "./run";
 
 const task =
-    "GET /users/999/summary returns a 500 instead of a 404. Find the root cause " +
-    "in the code and explain exactly which line is wrong and why.";
+    "The test suite is failing. Run the tests, read the failures, then find the " +
+    "root cause in the source and name the exact file and line for each failure.";
 
 const resumeId = process.argv[2];
 
