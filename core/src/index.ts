@@ -1,20 +1,18 @@
 import "dotenv/config";
-import Fastify from "fastify";
 
-import { ingestRoutes } from "@/ingest/routes";
+import { buildApp } from "@/app";
+import { startSupervisor } from "@/agent/supervisor";
 
-const app = Fastify({ logger: true });
+const app = await buildApp();
 
-app.get("/health", async () => ({ status: "ok" }));
-
-await app.register(ingestRoutes);
+startSupervisor();
 
 const port = Number(process.env.PORT ?? 8000);
 const host = process.env.HOST ?? "0.0.0.0";
 
 try {
-  await app.listen({ port, host });
+    await app.listen({ port, host });
 } catch (err) {
-  app.log.error(err);
-  process.exit(1);
+    app.log.error(err);
+    process.exit(1);
 }

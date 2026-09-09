@@ -16,13 +16,17 @@ export const alertmanagerSchema = z.object({
 
 export type AlertmanagerPayload = z.infer<typeof alertmanagerSchema>;
 
-export function normalize(payload: AlertmanagerPayload): Alert[] {
+export function normalize(payload: AlertmanagerPayload): { alert: Alert; raw: unknown }[] {
     return payload.alerts
         .filter((a) => a.status === "firing")
         .map((a) => ({
-            incident_id: a.fingerprint ?? `${a.labels["alertname"] ?? "alert"}-${a.startsAt ?? ""}`,
-            title: a.annotations["summary"] ?? a.labels["alertname"] ?? "Unnamed alert",
-            service: a.labels["service"] ?? a.labels["job"] ?? "unknown",
-            description: a.annotations["description"] ?? "No description supplied.",
+            alert: {
+                incident_id:
+                    a.fingerprint ?? `${a.labels["alertname"] ?? "alert"}-${a.startsAt ?? ""}`,
+                title: a.annotations["summary"] ?? a.labels["alertname"] ?? "Unnamed alert",
+                service: a.labels["service"] ?? a.labels["job"] ?? "unknown",
+                description: a.annotations["description"] ?? "No description supplied.",
+            },
+            raw: a,
         }));
 }
