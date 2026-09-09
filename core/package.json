@@ -2,7 +2,7 @@
   "name": "@healix/core",
   "version": "1.0.0",
   "private": true,
-  "description": "Healix core — agent, ingest, retrieval, telemetry, db, api",
+  "description": "Healix core \u2014 agent, ingest, retrieval, telemetry, db, api",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -15,7 +15,10 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --import tsx --test test/*.test.ts",
+    "index": "tsx src/cli/index-repo.ts",
+    "eval:recall": "tsx src/cli/recall.ts",
+    "agent": "tsx src/agent/scratch.ts"
   },
   "license": "MIT",
   "dependencies": {
