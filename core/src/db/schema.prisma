@@ -7,18 +7,40 @@ datasource db {
   provider = "postgresql"
 }
 
-model Run {
-  id        String   @id @default(uuid()) @db.Uuid
-  task      String
-  status    String   @default("running")
-  messages  Json     @default("[]")
-  stepCount Int      @default(0) @map("step_count")
-  diagnosis String?
-  error     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  steps     Step[]
+model Incident {
+  id          String   @id @default(uuid()) @db.Uuid
+  fingerprint String   @unique
+  service     String
+  title       String
+  description String
+  payload     Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  runs        Run[]
 
+  @@map("incidents")
+}
+
+model Run {
+  id         String    @id @default(uuid()) @db.Uuid
+  task       String
+  status     String    @default("running")
+  messages   Json      @default("[]")
+  stepCount  Int       @default(0) @map("step_count")
+  diagnosis  String?
+  error      String?
+  tokensUsed Int       @default(0) @map("tokens_used")
+  haltReason String?   @map("halt_reason")
+  resumeAttempts Int   @default(0) @map("resume_attempts")
+  incidentId String?   @map("incident_id") @db.Uuid
+  incident   Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  steps      Step[]
+  patch      Patch?
+
+  @@index([incidentId, status])
+  @@index([status, updatedAt])
   @@map("runs")
 }
 
@@ -34,8 +56,47 @@ model Step {
   tokensIn   Int?     @map("tokens_in")
   tokensOut  Int?     @map("tokens_out")
   durationMs Int?     @map("duration_ms")
+  attempt    Int      @default(1)
   createdAt  DateTime @default(now()) @map("created_at")
 
+  @@unique([runId, stepNumber, attempt])
   @@index([runId, stepNumber])
   @@map("steps")
+}
+
+model CodeChunk {
+  id        String   @id @default(uuid()) @db.Uuid
+  repo      String
+  path      String
+  symbol    String?
+  kind      String
+  startLine Int      @map("start_line")
+  endLine   Int      @map("end_line")
+  content   String
+  tokens    Int
+  embedding Unsupported("vector(768)")?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([repo, path, startLine, endLine])
+  @@index([repo, path])
+  @@map("code_chunks")
+}
+
+model Patch {
+  id         String    @id @default(uuid()) @db.Uuid
+  runId      String    @unique @map("run_id") @db.Uuid
+  run        Run       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  title      String
+  body       String
+  files      Json
+  status     String    @default("pending")
+  prUrl      String?   @map("pr_url")
+  prNumber   Int?      @map("pr_number")
+  reviewedAt DateTime? @map("reviewed_at")
+  reviewNote String?   @map("review_note")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("patches")
 }
