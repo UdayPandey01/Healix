@@ -1,0 +1,63 @@
+{
+  "measuredAt": "2026-09-08T15:56:34.980Z",
+  "k": 5,
+  "corpusChunks": 45,
+  "total": 22,
+  "byStrategy": {
+    "dense": {
+      "hits": 21,
+      "recall": 0.9545454545454546,
+      "misses": [
+        "cache-unbounded-growth"
+      ]
+    },
+    "lexical": {
+      "hits": 15,
+      "recall": 0.6818181818181818,
+      "misses": [
+        "cart-splice-during-iteration",
+        "pricing-additive-discounts",
+        "inventory-lowstock-predicate",
+        "cache-key-collision",
+        "cache-unbounded-growth",
+        "http-unbounded-retry",
+        "http-empty-body-parse"
+      ]
+    },
+    "rrf": {
+      "hits": 20,
+      "recall": 0.9090909090909091,
+      "misses": [
+        "cache-key-collision",
+        "cache-unbounded-growth"
+      ]
+    },
+    "rrf+rerank": {
+      "hits": 20,
+      "recall": 0.9090909090909091,
+      "misses": [
+        "cache-key-collision",
+        "cache-unbounded-growth"
+      ]
+    },
+    "dense+rerank": {
+      "hits": 21,
+      "recall": 0.9545454545454546,
+      "misses": [
+        "cache-unbounded-growth"
+      ]
+    }
+  },
+  "_invalid": {
+    "strategies": [
+      "dense+rerank",
+      "rrf+rerank"
+    ],
+    "reason": "The reranker threw 400 INVALID_ARGUMENT on every call (thinkingBudget: 0 is rejected by gemini-3.6-flash) and a silent catch returned the un-reranked order. These two rows equal their inputs because reranking never ran. See docs/FAILURE_MODES.md #11.",
+    "validRows": [
+      "dense",
+      "rrf",
+      "lexical"
+    ]
+  }
+}

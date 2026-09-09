@@ -1,0 +1,160 @@
+{
+  "$comment": "Ground truth for the seeded bug set in demo-service. `query` is what a retrieval system is given (the shape of an alert or a failing-test message, NOT the answer). `expect` is the chunk that must come back. recall@5 = fraction of bugs whose expected file+symbol appears in the top 5 retrieved chunks. Line numbers are of the symbol declaration and drift when demo-service is edited — `symbol` is the stable key, `line` is a hint.",
+  "target": "demo-service",
+  "bugs": [
+    {
+      "id": "orders-null-user",
+      "class": "unhandled-null",
+      "query": "TypeError: Cannot read properties of undefined (reading 'name') when requesting a summary for a user id that does not exist",
+      "expect": { "file": "src/orders.js", "symbol": "userOrderSummary", "line": 3 },
+      "test": "summary handles an unknown user without throwing"
+    },
+    {
+      "id": "orders-pagination-offset",
+      "class": "off-by-one",
+      "query": "the first page of /orders is missing the earliest records, pagination appears to skip a page",
+      "expect": { "file": "src/orders.js", "symbol": "listOrders", "line": 14 },
+      "test": "page 1 returns the first records"
+    },
+    {
+      "id": "cart-shared-default-options",
+      "class": "shared-mutable-state",
+      "query": "cart tags accumulate across unrelated requests, each add returns tags from previous customers",
+      "expect": { "file": "src/cart.js", "symbol": "addItem", "line": 12 },
+      "test": "tags do not leak between calls that pass no options"
+    },
+    {
+      "id": "cart-splice-during-iteration",
+      "class": "iteration-mutation",
+      "query": "removing sold out products from a basket leaves some sold out items behind when they are adjacent",
+      "expect": { "file": "src/cart.js", "symbol": "removeSoldOut", "line": 19 },
+      "test": "every sold-out item is removed, including adjacent ones"
+    },
+    {
+      "id": "cart-float-money",
+      "class": "float-precision",
+      "query": "basket total shows 0.30000000000000004 instead of 0.30, checkout totals are off by fractions of a cent",
+      "expect": { "file": "src/cart.js", "symbol": "cartTotal", "line": 28 },
+      "test": "cart total is exact for fractional prices"
+    },
+    {
+      "id": "pricing-additive-discounts",
+      "class": "logic-error",
+      "query": "orders with two promotions applied are charged a negative amount",
+      "expect": { "file": "src/pricing.js", "symbol": "applyDiscounts", "line": 3 },
+      "test": "stacked discounts never produce a negative price"
+    },
+    {
+      "id": "pricing-unknown-region-nan",
+      "class": "unhandled-null",
+      "query": "order total is NaN for customers in a region with no configured tax rate",
+      "expect": { "file": "src/pricing.js", "symbol": "taxFor", "line": 11 },
+      "test": "an unknown region does not produce NaN tax"
+    },
+    {
+      "id": "pricing-tier-boundary",
+      "class": "off-by-one",
+      "query": "buying exactly 10 units is charged the single-unit price instead of the bulk tier price",
+      "expect": { "file": "src/pricing.js", "symbol": "unitPriceFor", "line": 16 },
+      "test": "the bulk tier applies at exactly the tier minimum"
+    },
+    {
+      "id": "inventory-toctou-oversell",
+      "class": "race-condition",
+      "query": "stock went negative under concurrent checkout, two customers reserved the same last units",
+      "expect": { "file": "src/inventory.js", "symbol": "reserve", "line": 3 },
+      "test": "concurrent reservations cannot oversell"
+    },
+    {
+      "id": "inventory-restock-no-validation",
+      "class": "missing-validation",
+      "query": "a restock call with a negative quantity reduced on-hand inventory, and an unknown sku throws a TypeError instead of a clear error",
+      "expect": { "file": "src/inventory.js", "symbol": "restock", "line": 24 },
+      "test": "restocking a negative quantity is rejected"
+    },
+    {
+      "id": "inventory-lowstock-predicate",
+      "class": "logic-error",
+      "query": "the low stock report lists well-stocked products with plenty on hand",
+      "expect": { "file": "src/inventory.js", "symbol": "lowStock", "line": 30 },
+      "test": "low stock lists only items below the threshold"
+    },
+    {
+      "id": "cache-key-collision",
+      "class": "logic-error",
+      "query": "cached values are returned for the wrong arguments, two different calls share a cache entry",
+      "expect": { "file": "src/cache.js", "symbol": "cacheKey", "line": 3 },
+      "test": "cache keys do not collide across argument boundaries"
+    },
+    {
+      "id": "cache-unbounded-growth",
+      "class": "memory-leak",
+      "query": "process memory grows without bound under sustained traffic and is never reclaimed, heap climbs until OOM",
+      "expect": { "file": "src/cache.js", "symbol": "memoize", "line": 7 },
+      "test": "the memo cache is bounded"
+    },
+    {
+      "id": "auth-malformed-token-accepted",
+      "class": "auth-bypass",
+      "query": "requests with a garbage Authorization token are being authenticated successfully",
+      "expect": { "file": "src/auth.js", "symbol": "verifyToken", "line": 10 },
+      "test": "a malformed token is rejected"
+    },
+    {
+      "id": "auth-ttl-unit-mismatch",
+      "class": "unit-mismatch",
+      "query": "users are logged out seconds after signing in, sessions expire far sooner than the one hour TTL",
+      "expect": { "file": "src/auth.js", "symbol": "verifyToken", "line": 10 },
+      "test": "a session is still valid after ten minutes"
+    },
+    {
+      "id": "auth-role-substring",
+      "class": "auth-bypass",
+      "query": "a user whose only role is nonadmin passes an admin permission check",
+      "expect": { "file": "src/auth.js", "symbol": "hasRole", "line": 24 },
+      "test": "a role is not matched as a substring of another role"
+    },
+    {
+      "id": "http-unbounded-retry",
+      "class": "missing-timeout",
+      "query": "requests to a failing upstream never return, the handler hangs retrying forever and connections pile up",
+      "expect": { "file": "src/http.js", "symbol": "fetchWithRetry", "line": 1 },
+      "test": "retries give up instead of looping forever"
+    },
+    {
+      "id": "http-empty-body-parse",
+      "class": "unhandled-error",
+      "query": "SyntaxError: Unexpected end of JSON input when an upstream returns 204 No Content",
+      "expect": { "file": "src/http.js", "symbol": "parseResponse", "line": 16 },
+      "test": "an empty body does not throw a raw SyntaxError"
+    },
+    {
+      "id": "http-unencoded-query",
+      "class": "missing-encoding",
+      "query": "search requests break when the term contains a space or ampersand, query parameters are not escaped",
+      "expect": { "file": "src/http.js", "symbol": "buildUrl", "line": 25 },
+      "test": "query parameters are encoded"
+    },
+    {
+      "id": "shipping-zone-upper-bound",
+      "class": "off-by-one",
+      "query": "the highest postcode in each delivery zone is reported as unserviced",
+      "expect": { "file": "src/shipping.js", "symbol": "zoneFor", "line": 3 },
+      "test": "the top of a zone range is inside that zone"
+    },
+    {
+      "id": "shipping-missing-zone-throws",
+      "class": "unhandled-null",
+      "query": "TypeError: Cannot read properties of undefined (reading 'days') when estimating delivery for an out-of-area postcode",
+      "expect": { "file": "src/shipping.js", "symbol": "estimateDays", "line": 9 },
+      "test": "an unserviced postcode is reported, not thrown"
+    },
+    {
+      "id": "shipping-date-mutation",
+      "class": "input-mutation",
+      "query": "the order date shifts forward every time a delivery estimate is calculated",
+      "expect": { "file": "src/shipping.js", "symbol": "deliveryDate", "line": 15 },
+      "test": "delivery date does not mutate the date it is given"
+    }
+  ]
+}
