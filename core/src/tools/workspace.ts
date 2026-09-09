@@ -21,3 +21,5 @@ export function safeResolve(
     }
     return { ok: true, target };
 }
+
+export type ToolContext = { runId?: string };
