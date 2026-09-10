@@ -214,6 +214,7 @@ Real documentation, written as the thing was built rather than reconstructed aft
 - [`docs/FAILURE_MODES.md`](docs/FAILURE_MODES.md) — every failure class actually hit, with
   cause and fix. The most useful file here
 - [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) — what shipped in each phase and what didn't
+- [`docs/DEMO.md`](docs/DEMO.md) — rehearsed runbook for demoing this live
 
 ---
 
