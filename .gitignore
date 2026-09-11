@@ -44,3 +44,11 @@ demo-service/
 # --- Local design/working notes, not published ---
 DESIGN.md
 EXPLAIN.md
+
+# --- Working notes kept locally, not published ---
+docs/DECISIONS.md
+docs/FAILURE_MODES.md
+docs/PHASE_LOG.md
+docs/DEMO.md
+docs/PRESENTATION.md
+docs/WORK_SPLIT.md

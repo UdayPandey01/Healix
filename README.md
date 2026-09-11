@@ -88,6 +88,11 @@ You get a `run_id` back immediately (`202`, because the work outlives the reques
 curl -H "Authorization: Bearer $API_TOKEN" http://localhost:8000/v1/runs/<run_id>
 ```
 
+> **If `demo-service/` ever looks half-deleted:** it lives inside this working tree but is
+> gitignored and tracked by its own repository. Commits from before it was split out still
+> record those files, so checking out old Healix history deletes the ones it used to track.
+> Nothing is lost — restore with `cd demo-service && git checkout -- .`
+
 **`npm run index` is not optional.** With an empty index `search_code` returns nothing,
 and the agent falls back to listing and grepping — much slower, much worse. Re-run it
 whenever the target repo changes.
@@ -205,15 +210,8 @@ not the ranking. Details in [`docs/FAILURE_MODES.md`](docs/FAILURE_MODES.md) #5.
 
 ## Documentation
 
-Real documentation, written as the thing was built rather than reconstructed after:
-
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — what is actually built, with diagrams
-- [`docs/DECISIONS.md`](docs/DECISIONS.md) — one entry per file that does real work: why it
-  exists, what was traded away, what would break without it
 - [`docs/FLOW.md`](docs/FLOW.md) — alert → investigation → sandbox → approval → PR
-- [`docs/FAILURE_MODES.md`](docs/FAILURE_MODES.md) — every failure class actually hit, with
-  cause and fix. The most useful file here
-- [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) — what shipped in each phase and what didn't
 
 ---
 
