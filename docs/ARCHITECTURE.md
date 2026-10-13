@@ -282,7 +282,7 @@ service was removed from `docker-compose.yml` in Phase 0.
 | `api/` | Runs list/detail + approve/reject, all bearer-authenticated |
 | Guardrails | Pass cap, step cap, token budget, loop detection — all from durable state |
 | Approval gate | `open_pr` only proposes; a human approves before any PR exists |
-| Supervisor | Sweeps runs orphaned by a dead process and resumes them |
+| Supervisor | Sweeps runs orphaned vartika by a dead process and resumes them |
 | `telemetry/` | Empty |
 | `web/` | Not created |
 
